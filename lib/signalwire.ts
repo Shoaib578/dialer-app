@@ -202,3 +202,31 @@ export async function sendSms(
 
   return { sid: message.sid, status: message.status };
 }
+
+export async function getMessageStatus(
+  messageSid: string
+): Promise<{ status: string; errorMessage: string | null }> {
+  assertConfigured();
+  const message = await lamlFetchJson<{ status: string; error_message: string | null }>(
+    `/Messages/${messageSid}.json`
+  );
+  return { status: message.status, errorMessage: message.error_message };
+}
+
+export interface InboundSmsRecord {
+  sid: string;
+  from: string;
+  body: string;
+}
+
+/** Polls SignalWire directly for messages received on our number — used instead of an inbound SMS webhook. */
+export async function listInboundMessages(limit = 50): Promise<InboundSmsRecord[]> {
+  assertConfigured();
+  const data = await lamlFetchJson<{
+    messages: Array<{ sid: string; from: string; body: string; direction: string }>;
+  }>(`/Messages.json?To=${encodeURIComponent(CALLER_ID as string)}&PageSize=${limit}`);
+
+  return data.messages
+    .filter((m) => m.direction === "inbound")
+    .map((m) => ({ sid: m.sid, from: m.from, body: m.body }));
+}

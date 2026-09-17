@@ -2,6 +2,7 @@ import "server-only";
 import type { RowDataPacket, ResultSetHeader } from "mysql2";
 import { db } from "@/lib/db";
 import { findContactByPhone } from "@/lib/contacts";
+import { listInboundMessages } from "@/lib/signalwire";
 
 export interface Chat {
   id: number;
@@ -74,9 +75,12 @@ export async function listChats(): Promise<Chat[]> {
   return rows.map(chatFromRow);
 }
 
+// Only inbound messages and confirmed-delivered outbound messages are ever
+// surfaced — a queued/failed outbound message stays hidden until SignalWire's
+// status callback confirms delivery (see recordDeliveryStatus).
 export async function listMessagesForChat(chatId: number): Promise<Message[]> {
   const [rows] = await db.query<MessageRow[]>(
-    "SELECT id, chat_id, message_sid, direction, body, status, error_message, created_at FROM app_messages WHERE chat_id = ? ORDER BY created_at ASC",
+    "SELECT id, chat_id, message_sid, direction, body, status, error_message, created_at FROM app_messages WHERE chat_id = ? AND (direction = 'inbound' OR status = 'delivered') ORDER BY created_at ASC",
     [chatId]
   );
   return rows.map(messageFromRow);
@@ -106,6 +110,13 @@ async function getOrCreateChat(phoneE164: string): Promise<Chat> {
 
 const PREVIEW_LENGTH = 120;
 
+async function touchChatPreview(chatId: number, body: string): Promise<void> {
+  await db.query(
+    "UPDATE app_chats SET last_message_at = CURRENT_TIMESTAMP, last_message_preview = ? WHERE id = ?",
+    [body.slice(0, PREVIEW_LENGTH), chatId]
+  );
+}
+
 async function recordMessage(
   phoneE164: string,
   direction: "inbound" | "outbound",
@@ -121,10 +132,12 @@ async function recordMessage(
     [chat.id, messageSid, direction, body, status, errorMessage]
   );
 
-  await db.query(
-    "UPDATE app_chats SET last_message_at = CURRENT_TIMESTAMP, last_message_preview = ? WHERE id = ?",
-    [body.slice(0, PREVIEW_LENGTH), chat.id]
-  );
+  // Inbound messages are shown immediately, so their chat preview updates
+  // right away. Outbound messages only update the preview once delivery is
+  // confirmed — see recordDeliveryStatus.
+  if (direction === "inbound") {
+    await touchChatPreview(chat.id, body);
+  }
 
   return {
     id: result.insertId,
@@ -153,4 +166,49 @@ export async function recordInboundMessage(
   messageSid: string | null
 ): Promise<Message> {
   return recordMessage(fromPhoneE164, "inbound", body, messageSid, "received");
+}
+
+/** Applies a freshly-polled SignalWire delivery status to the matching outbound message. */
+export async function recordDeliveryStatus(
+  messageSid: string,
+  status: string,
+  errorMessage: string | null
+): Promise<void> {
+  await db.query(
+    "UPDATE app_messages SET status = ?, error_message = ? WHERE message_sid = ?",
+    [status, errorMessage, messageSid]
+  );
+
+  if (status === "delivered") {
+    const [rows] = await db.query<MessageRow[]>(
+      "SELECT id, chat_id, message_sid, direction, body, status, error_message, created_at FROM app_messages WHERE message_sid = ? LIMIT 1",
+      [messageSid]
+    );
+    if (rows[0]) await touchChatPreview(rows[0].chat_id, rows[0].body);
+  }
+}
+
+async function getExistingMessageSids(sids: string[]): Promise<Set<string>> {
+  if (sids.length === 0) return new Set();
+  const [rows] = await db.query<RowDataPacket[]>(
+    `SELECT message_sid FROM app_messages WHERE message_sid IN (${sids.map(() => "?").join(",")})`,
+    sids
+  );
+  return new Set(rows.map((row) => row.message_sid as string));
+}
+
+/** Pulls recently received messages from SignalWire and inserts any we haven't stored yet. */
+export async function syncInboundMessages(): Promise<number> {
+  const records = await listInboundMessages(50);
+  if (records.length === 0) return 0;
+
+  const existingSids = await getExistingMessageSids(records.map((r) => r.sid));
+
+  let inserted = 0;
+  for (const record of records) {
+    if (existingSids.has(record.sid)) continue;
+    await recordInboundMessage(record.from, record.body, record.sid);
+    inserted++;
+  }
+  return inserted;
 }
