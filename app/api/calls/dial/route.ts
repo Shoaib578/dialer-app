@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { originateCallToCustomer } from "@/lib/signalwire";
 import { isValidE164 } from "@/lib/phone";
+import { recordDialedCall } from "@/lib/callHistory";
 
 // Very small in-memory guard against accidental rapid repeated dialing.
 // Good enough for a single-user internal dialer; resets on server restart.
@@ -35,6 +36,11 @@ export async function POST(request: NextRequest) {
 
   try {
     const { callSid, status } = await originateCallToCustomer(to);
+    try {
+      await recordDialedCall(to, process.env.SIGNALWIRE_PHONE_NUMBER ?? null, callSid, status);
+    } catch (dbError) {
+      console.error("Failed to record dialed call:", dbError);
+    }
     return NextResponse.json({ callSid, status });
   } catch (error) {
     console.error("Failed to originate call:", error);

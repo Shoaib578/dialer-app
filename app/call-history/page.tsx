@@ -1,27 +1,31 @@
-import { listRecentCalls } from "@/lib/signalwire";
+import { listCallHistory } from "@/lib/callHistory";
+import { formatPhoneForDisplay } from "@/lib/phone";
 
 export const dynamic = "force-dynamic";
 
 function statusColor(status: string): string {
   if (status === "completed") return "bg-green-100 text-green-700";
-  if (status === "in-progress" || status === "ringing") return "bg-amber-100 text-amber-700";
+  if (status === "in-progress" || status === "ringing" || status === "queued" || status === "initiated") {
+    return "bg-amber-100 text-amber-700";
+  }
   return "bg-red-100 text-red-700";
 }
 
-function formatDuration(totalSeconds: number): string {
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+function formatDuration(totalSeconds: number | null): string {
+  const seconds = totalSeconds ?? 0;
+  const minutes = Math.floor(seconds / 60);
+  const remaining = seconds % 60;
+  return `${minutes}:${remaining.toString().padStart(2, "0")}`;
 }
 
 export default async function CallHistoryPage() {
-  let calls: Awaited<ReturnType<typeof listRecentCalls>> = [];
+  let calls: Awaited<ReturnType<typeof listCallHistory>> = [];
   let loadError: string | null = null;
 
   try {
-    calls = await listRecentCalls(50);
+    calls = await listCallHistory(50);
   } catch {
-    loadError = "Couldn't load call history from SignalWire.";
+    loadError = "Couldn't load call history.";
   }
 
   return (
@@ -42,28 +46,28 @@ export default async function CallHistoryPage() {
               <tr className="text-left text-xs text-gray-500 border-b border-gray-100">
                 <th className="px-4 py-2 font-medium">To</th>
                 <th className="px-4 py-2 font-medium">From</th>
-                <th className="px-4 py-2 font-medium">Direction</th>
                 <th className="px-4 py-2 font-medium">Duration</th>
                 <th className="px-4 py-2 font-medium">Status</th>
+                <th className="px-4 py-2 font-medium">Date</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {calls.map((call) => (
-                <tr key={call.sid}>
-                  <td className="px-4 py-2 text-gray-900">{call.to}</td>
-                  <td className="px-4 py-2 text-gray-500">{call.from}</td>
-                  <td className="px-4 py-2 text-gray-500">{call.direction}</td>
+                <tr key={call.id}>
+                  <td className="px-4 py-2 text-gray-900">{formatPhoneForDisplay(call.toNumber)}</td>
                   <td className="px-4 py-2 text-gray-500">
-                    {formatDuration(call.durationSec)}
+                    {call.fromNumber ? formatPhoneForDisplay(call.fromNumber) : "—"}
                   </td>
+                  <td className="px-4 py-2 text-gray-500">{formatDuration(call.durationSeconds)}</td>
                   <td className="px-4 py-2">
                     <span
-                      className={`inline-block rounded px-2 py-0.5 text-xs ${statusColor(
-                        call.status
-                      )}`}
+                      className={`inline-block rounded px-2 py-0.5 text-xs ${statusColor(call.status)}`}
                     >
                       {call.status}
                     </span>
+                  </td>
+                  <td className="px-4 py-2 text-gray-500">
+                    {new Date(call.createdAt).toLocaleString()}
                   </td>
                 </tr>
               ))}

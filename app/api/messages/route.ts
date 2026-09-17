@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import { listRecentMessages } from "@/lib/signalwire";
+import { listChats } from "@/lib/messages";
 
 export async function GET() {
   try {
-    const messages = await listRecentMessages(50);
-    return NextResponse.json({ messages });
+    const chats = await listChats();
+    return NextResponse.json({ chats });
   } catch (error) {
-    console.error("Failed to fetch messages:", error);
-    return NextResponse.json({ error: "Failed to fetch messages." }, { status: 502 });
+    console.error("Failed to fetch chats:", error);
+    return NextResponse.json({ error: "Failed to fetch chats." }, { status: 500 });
   }
 }

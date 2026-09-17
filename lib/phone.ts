@@ -27,3 +27,10 @@ export function toE164(raw: string): string | null {
 export function isValidE164(value: string): boolean {
   return E164_RE.test(value);
 }
+
+/** Formats a US/CA E.164 number as "(XXX) XXX-XXXX"; other numbers pass through as-is. */
+export function formatPhoneForDisplay(e164: string): string {
+  const match = e164.match(/^\+1(\d{3})(\d{3})(\d{4})$/);
+  if (!match) return e164;
+  return `(${match[1]}) ${match[2]}-${match[3]}`;
+}

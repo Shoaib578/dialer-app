@@ -11,6 +11,15 @@ const LABELS: Record<CallPhase, string> = {
   failed: "Call failed",
 };
 
+const BADGE_STYLE: Record<CallPhase, string> = {
+  idle: "bg-gray-100 text-gray-500",
+  dialing: "bg-amber-50 text-amber-600",
+  ringing: "bg-amber-50 text-amber-600",
+  connected: "bg-green-50 text-green-600",
+  ended: "bg-gray-100 text-gray-500",
+  failed: "bg-red-50 text-red-600",
+};
+
 const DOT_COLOR: Record<CallPhase, string> = {
   idle: "bg-gray-300",
   dialing: "bg-amber-500 animate-pulse",
@@ -34,18 +43,18 @@ interface CallStatusProps {
 
 export default function CallStatus({ phase, durationSec, error }: CallStatusProps) {
   return (
-    <div className="flex flex-col gap-1">
-      <div className="flex items-center gap-2">
-        <span className={`h-2 w-2 rounded-full ${DOT_COLOR[phase]}`} />
-        <span className="text-sm text-gray-600">{LABELS[phase]}</span>
+    <div className="flex flex-col items-center gap-1.5">
+      <div
+        className={`flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium ${BADGE_STYLE[phase]}`}
+      >
+        <span className={`h-1.5 w-1.5 rounded-full ${DOT_COLOR[phase]}`} />
+        {LABELS[phase]}
         {phase === "connected" && (
-          <span className="text-xs tabular-nums text-gray-500">
-            {formatDuration(durationSec)}
-          </span>
+          <span className="tabular-nums">{formatDuration(durationSec)}</span>
         )}
       </div>
       {error && phase === "failed" && (
-        <span className="text-xs text-red-600">{error}</span>
+        <span className="text-xs text-red-500">{error}</span>
       )}
     </div>
   );

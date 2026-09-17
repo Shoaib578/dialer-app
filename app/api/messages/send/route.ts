@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sendSms } from "@/lib/signalwire";
 import { isValidE164 } from "@/lib/phone";
+import { recordOutboundMessage } from "@/lib/messages";
 
 const MAX_BODY_LENGTH = 1600; // ~10 SMS segments
 
@@ -35,6 +36,11 @@ export async function POST(request: NextRequest) {
 
   try {
     const { sid, status } = await sendSms(to, body);
+    try {
+      await recordOutboundMessage(to, body, sid, status);
+    } catch (dbError) {
+      console.error("Failed to record outbound message:", dbError);
+    }
     return NextResponse.json({ sid, status });
   } catch (error) {
     console.error("Failed to send message:", error);

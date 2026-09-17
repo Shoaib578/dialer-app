@@ -32,7 +32,7 @@ export default function CallControls({
         onClick={onBackspace}
         disabled={inCall || !hasNumber}
         aria-label="Backspace"
-        className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:pointer-events-none"
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 shadow-sm transition hover:bg-gray-50 disabled:opacity-30 disabled:pointer-events-none"
       >
         ⌫
       </button>
@@ -40,7 +40,7 @@ export default function CallControls({
         type="button"
         onClick={onClear}
         disabled={inCall || !hasNumber}
-        className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:pointer-events-none"
+        className="h-11 shrink-0 rounded-full border border-gray-200 bg-white px-4 text-sm font-medium text-gray-500 shadow-sm transition hover:bg-gray-50 disabled:opacity-30 disabled:pointer-events-none"
       >
         Clear
       </button>
@@ -48,18 +48,18 @@ export default function CallControls({
         <button
           type="button"
           onClick={onHangUp}
-          className="flex-1 rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700 transition"
+          className="flex h-11 flex-1 items-center justify-center gap-2 rounded-full bg-red-500 text-sm font-semibold text-white shadow-md shadow-red-200 transition hover:bg-red-600 active:scale-[0.98]"
         >
-          📞 End Call
+          <span className="text-base">📞</span> End Call
         </button>
       ) : (
         <button
           type="button"
           onClick={onCall}
           disabled={!canCall}
-          className="flex-1 rounded-md bg-green-600 px-3 py-2 text-sm font-medium text-white hover:bg-green-700 transition disabled:opacity-40 disabled:pointer-events-none"
+          className="flex h-11 flex-1 items-center justify-center gap-2 rounded-full bg-green-500 text-sm font-semibold text-white shadow-md shadow-green-200 transition hover:bg-green-600 active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none disabled:shadow-none"
         >
-          📞 Direct PSTN Call
+          <span className="text-base">📞</span> Call
         </button>
       )}
     </div>

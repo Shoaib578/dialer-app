@@ -183,52 +183,6 @@ export async function hangUpCall(callSid: string): Promise<void> {
   });
 }
 
-export interface CallLogEntry {
-  sid: string;
-  to: string;
-  from: string;
-  status: string;
-  durationSec: number;
-  startedAt: string | null;
-  direction: string;
-}
-
-export async function listRecentCalls(limit = 20): Promise<CallLogEntry[]> {
-  assertConfigured();
-  const data = await lamlFetchJson<{
-    calls: Array<{
-      sid: string;
-      to: string;
-      from: string;
-      status: string;
-      duration: string | null;
-      start_time: string | null;
-      direction: string;
-    }>;
-  }>(`/Calls.json?PageSize=${limit}`);
-
-  return data.calls.map((c) => ({
-    sid: c.sid,
-    to: c.to,
-    from: c.from,
-    status: c.status,
-    durationSec: c.duration ? parseInt(c.duration, 10) : 0,
-    startedAt: c.start_time,
-    direction: c.direction,
-  }));
-}
-
-export interface MessageLogEntry {
-  sid: string;
-  to: string;
-  from: string;
-  body: string;
-  status: string;
-  direction: string;
-  errorMessage: string | null;
-  dateSent: string | null;
-}
-
 export async function sendSms(
   toNumber: string,
   body: string
@@ -247,31 +201,4 @@ export async function sendSms(
   });
 
   return { sid: message.sid, status: message.status };
-}
-
-export async function listRecentMessages(limit = 20): Promise<MessageLogEntry[]> {
-  assertConfigured();
-  const data = await lamlFetchJson<{
-    messages: Array<{
-      sid: string;
-      to: string;
-      from: string;
-      body: string;
-      status: string;
-      direction: string;
-      error_message: string | null;
-      date_sent: string | null;
-    }>;
-  }>(`/Messages.json?PageSize=${limit}`);
-
-  return data.messages.map((m) => ({
-    sid: m.sid,
-    to: m.to,
-    from: m.from,
-    body: m.body,
-    status: m.status,
-    direction: m.direction,
-    errorMessage: m.error_message,
-    dateSent: m.date_sent,
-  }));
 }
