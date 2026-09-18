@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Contact } from "@/lib/contacts";
 import { formatPhoneForDisplay, toE164 } from "@/lib/phone";
 
@@ -37,6 +37,11 @@ export default function ContactsPanel({ onCall, callDisabled }: ContactsPanelPro
   const [newPhone, setNewPhone] = useState("");
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importing, setImporting] = useState(false);
+  const [importMessage, setImportMessage] = useState<string | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
 
   const loadContacts = async () => {
     setLoading(true);
@@ -91,14 +96,62 @@ export default function ContactsPanel({ onCall, callDisabled }: ContactsPanelPro
     }
   };
 
+  const handleImportClick = () => fileInputRef.current?.click();
+
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-selecting the same file
+    if (!file) return;
+
+    setImportMessage(null);
+    setImportError(null);
+    setImporting(true);
+    try {
+      const body = new FormData();
+      body.append("file", file);
+      const res = await fetch("/api/contacts/import", { method: "POST", body });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error ?? "Failed to import contacts.");
+
+      const parts = [`${data.created} added`, `${data.updated} updated`];
+      if (data.errors?.length) parts.push(`${data.errors.length} skipped`);
+      setImportMessage(parts.join(", ") + ".");
+      await loadContacts();
+    } catch (err) {
+      setImportError(err instanceof Error ? err.message : "Failed to import contacts.");
+    } finally {
+      setImporting(false);
+    }
+  };
+
   return (
     <div className="flex h-full w-full max-w-md flex-col rounded-2xl border border-gray-200 bg-white p-4 shadow-md shadow-gray-200/60">
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-base font-semibold text-gray-900">Contacts</h2>
-        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-gray-500">
-          {contacts.length}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-gray-500">
+            {contacts.length}
+          </span>
+          <button
+            type="button"
+            onClick={handleImportClick}
+            disabled={importing}
+            className="rounded-full border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-600 transition hover:bg-slate-50 disabled:opacity-40"
+          >
+            {importing ? "Importing…" : "Import"}
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,.xlsx,.xls"
+            className="hidden"
+            onChange={handleImportFile}
+          />
+        </div>
       </div>
+
+      {importMessage && <p className="mb-2 text-xs text-green-600">{importMessage}</p>}
+      {importError && <p className="mb-2 text-xs text-red-500">{importError}</p>}
 
       <div className="relative mb-3">
         <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
